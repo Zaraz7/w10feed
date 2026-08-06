@@ -22,23 +22,22 @@ class FTPHandler:
             self.ftp.cwd(path)
             lines = []
             self.ftp.retrlines('LIST', lines.append)
-            #print('list getting')
             
             for line in lines:
                 parts = line.split()
                 if len(parts) >= 9 and parts[0][0] != "d":
                     filename = ' '.join(parts[8:])
-                    #if filename.endswith(pattern):
+                    if filename.endswith(pattern):
                         # MMM DD HH:MM or MMM DD YYYY
-                    try:
-                        mtime = self._parse_list_time(line)
-                        files.append({
-                            'name': filename,
-                            'mtime': mtime,
-                            'path': f"{path}/{filename}"
-                        })
-                    except:
-                        pass
+                        try:
+                            mtime = self._parse_list_time(line)
+                            files.append({
+                                'name': filename,
+                                'mtime': mtime,
+                                'path': f"{path}/{filename}"
+                            })
+                        except:
+                            pass
         except ftplib.all_errors:
             pass
         return sorted(files, key=lambda x: x['mtime'], reverse=True)
@@ -143,18 +142,14 @@ class AtomGenerator(FeedGenerator):
         lines.append('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">')
         lines.append('<channel>')
         
-        # Метаинформация о ленте
+        # metadata
+        lines.append(f'  <atom:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
         lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
         lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
         lines.append(f'  <link href="{self.escape(self.config["site_url"])}" rel="alternate"/>')
-        lines.append(f'  <language>{self.escape(self.config["lang"])}</language>')
-        #lines.append(f'  <link href="{self.escape(self.config["output_file"])}" rel="self"/>')
-        #lines.append(f'  <id>{self.escape(self.config["site_url"])}</id>')
-        #lines.append(f'  <updated>{format_iso8601_date(int(time.time()))}</updated>')
         
-        # Элементы
+        # Items
         for i, item in enumerate(self.items):
-            #if self.config['debug']:
             print(f"Writing item {i+1}/{len(self.items)}: {item['title']:<70s}", end="\r")
             
             lines.append('  <item>')
@@ -162,7 +157,7 @@ class AtomGenerator(FeedGenerator):
             lines.append(f'    <link>{self.escape(item["link"])}</link>')
             lines.append(f'    <guid>{self.escape(item["id"])}</guid>')
             
-            # Description с поддержкой CDATA
+            # Description with or without html
             lines.append('    <description>')
             if self._needs_cdata(item['description']):
                 lines.append(f'      <![CDATA[{item["description"]}]]>')
@@ -236,7 +231,6 @@ def make_pics(url, host, user, passwd, title, out, maxitems):
             year_path = f"{PHOTOS_PATH}/{year}"
             print(f"Dir: {year:<80s}")
             images = ftp.list_files(year_path, pattern=".jpg")
-            #print(*images, sep="\n")
 
             ftp.ftp.cwd(f"{year_path}/thumbs")
             thumbs = []
@@ -304,7 +298,7 @@ def main():
     a.add_argument('--user', help="FTP user")
     a.add_argument('--passwd', help="FTP user's password")
     a.add_argument('--title', help="Title of feed. Default = site domain")
-    a.add_argument('--out', help="Output file of feed", default='./feed.xml')
+    a.add_argument('--out', help="Output file of feed", default='feed.xml')
     a.add_argument('--maxitems', help="Max items of feed", default=25)
 
     a.set_defaults(func=cmd_gen)
