@@ -83,7 +83,14 @@ class FTPHandler:
             return b''.join(data).decode('utf-8', errors='ignore')
         except ftplib.all_errors:
             return None
-    
+    def push_file(self, path):
+        try:
+            filename = os.path.basename(path)
+            with open(path, "rb") as file:
+                self.ftp.storbinary(f"STOR {filename}", file)
+            return True
+        except:
+            return False
     def close(self):
         self.ftp.quit()
 
@@ -122,11 +129,9 @@ class FeedGenerator:
         self.items = items
     
     def add_item(self, item):
-        """Добавить элемент в ленту"""
         self.items.append(item)
     
     def generate(self):
-        """Генерирует XML ленту - переопределить в подклассах"""
         raise NotImplementedError
     
     def escape(self, text):
@@ -143,7 +148,7 @@ class AtomGenerator(FeedGenerator):
         lines.append('<channel>')
         
         # metadata
-        lines.append(f'  <atom:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
+        lines.append(f'  <atom\:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
         lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
         lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
         lines.append(f'  <link href="{self.escape(self.config["site_url"])}" rel="alternate"/>')
@@ -204,16 +209,17 @@ def create_feed_items(images):
     return items
 
 
-def make_pics(url, host, user, passwd, title, out, maxitems):
-    ftp = FTPHandler(host, user, passwd)
+def make_pics(ftp, url, host, user, passwd, title, out, maxitems):
     PHOTOS_PATH = '/photos'
-    title = title if title else f"{user} feed"
+    title = title if title else user
     all_images = []
-    description = title
+    description = ''
     try:
         humans = ftp.read_file('/humans.txt')
         if humans:
             description = humans.rstrip("\n")
+        else:
+            description = f'Site feed for {title}'
 
         ftp.ftp.cwd(PHOTOS_PATH)
         lines = []
@@ -277,29 +283,45 @@ def make_pics(url, host, user, passwd, title, out, maxitems):
 
 
 def cmd_gen(args):
+    ftp = FTPHandler(args.host, args.user, args.passwd)
     for t in args.type or 'pics':
         if t == 'pics':
-            make_pics(args.url, args.host, args.user, args.passwd, args.title, args.out, args.maxitems)
+            make_pics(ftp, args.url, args.host, args.user, args.passwd, args.title, args.out, args.maxitems)
         elif t == 'neocities':
-            print('neocities: diz type is not ready')
+            print(f'{t}: diz type is not ready')
+        elif t == 'blog':
+            print(f'{t}: diz type is not ready')
         else:
             print('Bad type format, expected "pics", "neocities".')
-
+    if not args.local:
+        print(f'Pushing {args.out} to FTP host... ', end='')
+        if not ftp.push_file(args.out):
+            print('Error')
+        print('Done.')
+    ftp.close()
 
 def main():
     # cli
-    argp = argparse.ArgumentParser(description='w10feed')
+    argp = argparse.ArgumentParser(description='w10feed', usage='''use "%(prog)s --help" for more information
+''', formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = argp.add_subparsers(dest='cmd')
     ## Generate
-    a = sub.add_parser('gen', help="Generate feed")
-    a.add_argument('--type', help="Type of feed (pics, neocities)", nargs='*', required=True)
-    a.add_argument('--url', help="Url for site", required=True)
-    a.add_argument('--host', help="FTP host", required=True)
-    a.add_argument('--user', help="FTP user")
-    a.add_argument('--passwd', help="FTP user's password")
-    a.add_argument('--title', help="Title of feed. Default = site domain")
-    a.add_argument('--out', help="Output file of feed", default='feed.xml')
-    a.add_argument('--maxitems', help="Max items of feed", default=25)
+    a = sub.add_parser('gen', help="Generate feed", formatter_class=argparse.RawTextHelpFormatter)
+    a.add_argument('--type', '-t', help='''Type of feed
+pics        gallery similar to https://img.triapul.cz/sect.html
+blog        /blog/* feed
+neocities   neocities.org like feed
+
+''', nargs='+', required=True)
+    a.add_argument('--url', help="URL of site")
+    a.add_argument('--host', help="FTP host")
+    a.add_argument('--user', "-n", help="FTP user")
+    a.add_argument('--passwd', "-p", help="FTP user's password")
+    a.add_argument('--title', help="Title of feed. Default = user")
+    a.add_argument('--out', '-o', help="Output feed file name", default='feed.xml')
+    a.add_argument('--maxitems', '-m', help="Max items of feed", default=25)
+    a.add_argument('--local', help="Disable upload output file back to FTP server", action='store_true')
+    a.add_argument('--ignorecontent', help="Don't write content of /blog/* files to feed items", action='store_true')
 
     a.set_defaults(func=cmd_gen)
 
