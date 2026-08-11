@@ -46,9 +46,8 @@ class FTPHandler:
         return [i["name"] for i in self.list_filenames(path, pattern)]
     
     def _parse_list_time(self, line):
-        """Парсит время из FTP LIST"""
-        # Базовое парсирование - может отличаться в зависимости от сервера
-        import time
+        # based on ftp.w10.host server
+        #import time
         parts = line.split()
         month_str = parts[5]
         day = parts[6]
@@ -83,13 +82,85 @@ class FTPHandler:
             return b''.join(data).decode('utf-8', errors='ignore')
         except ftplib.all_errors:
             return None
-    def push_file(self, path):
+    # def push_file(self, path):
+    #     try:
+    #         filename = os.path.basename(path)
+    #         with open(path, "rb") as file:
+    #             self.ftp.storbinary(f"STOR {filename}", file)
+    #         return True
+    #     except:
+    #         return False
+    def upload_file(self, local_path, remote_path):
+        """Отправить файл на FTP сервер
+        
+        Args:
+            local_path (str): Путь к файлу на локальном компьютере
+            remote_path (str): Путь назначения на FTP сервере
+            
+        Returns:
+            bool: True если успешно, False если ошибка
+        """
         try:
-            filename = os.path.basename(path)
-            with open(path, "rb") as file:
-                self.ftp.storbinary(f"STOR {filename}", file)
+            # Проверяем существование локального файла
+            if not os.path.exists(local_path):
+                print(f"Ошибка: файл {local_path} не найден")
+                return False
+            
+            # Если remote_path содержит директорию, создаём её на сервере
+            remote_dir = os.path.dirname(remote_path)
+            if remote_dir:
+                self._ensure_remote_dir(remote_dir)
+            
+            self.ftp.cwd("/")
+            # Открываем файл в бинарном режиме и отправляем
+            with open(local_path, 'rb') as file:
+                cmd = f'STOR {remote_path}'
+                self.ftp.storbinary(cmd, file)
+            
+            print(f"✓ Файл успешно загружен: {remote_path}")
             return True
-        except:
+            
+        except FileNotFoundError:
+            print(f"Ошибка: файл {local_path} не найден")
+            return False
+        except ftplib.all_errors as e:
+            print(f"Ошибка FTP: {e}")
+            return False
+        except Exception as e:
+            print(f"Неожиданная ошибка: {e}")
+            return False
+
+    def _ensure_remote_dir(self, remote_dir):
+        """Создаёт директорию на FTP сервере, если её нет"""
+        try:
+            # Пытаемся перейти в директорию
+            self.ftp.cwd(remote_dir)
+            self.ftp.cwd('..')  # Возвращаемся обратно
+        except ftplib.all_errors:
+            # Директория не существует, создаём её
+            try:
+                self.ftp.mkd(remote_dir)
+                print(f"✓ Создана директория: {remote_dir}")
+            except ftplib.all_errors as e:
+                print(f"Предупреждение: не удалось создать директорию {remote_dir}: {e}")
+    def test_connection(self):
+        """Тестирует соединение и права доступа"""
+        try:
+            current_dir = self.ftp.pwd()
+            print(f"✓ Соединение активно")
+            print(f"✓ Текущая директория: {current_dir}")
+            
+            # Пытаемся создать тестовый файл
+            test_file = f'/test_{int(datetime.now().timestamp())}.txt'
+            self.ftp.storbinary(f'STOR {test_file}', open(__file__, 'rb'))
+            
+            if self.ftp.size(test_file):
+                self.ftp.delete(test_file)
+                print(f"✓ Права доступа на запись подтверждены")
+                return True
+            
+        except ftplib.all_errors as e:
+            print(f"✗ Ошибка: {e}")
             return False
     def close(self):
         self.ftp.quit()
@@ -148,7 +219,7 @@ class AtomGenerator(FeedGenerator):
         lines.append('<channel>')
         
         # metadata
-        lines.append(f'  <atom\:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
+        lines.append(f'  <atom:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
         lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
         lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
         lines.append(f'  <link href="{self.escape(self.config["site_url"])}" rel="alternate"/>')
@@ -209,7 +280,7 @@ def create_feed_items(images):
     return items
 
 
-def make_pics(ftp, url, host, user, passwd, title, out, maxitems):
+def make_pics(ftp, url, user, title, out, maxitems):
     PHOTOS_PATH = '/photos'
     title = title if title else user
     all_images = []
@@ -238,21 +309,21 @@ def make_pics(ftp, url, host, user, passwd, title, out, maxitems):
             print(f"Dir: {year:<80s}")
             images = ftp.list_files(year_path, pattern=".jpg")
 
-            ftp.ftp.cwd(f"{year_path}/thumbs")
-            thumbs = []
-            ftp.ftp.retrlines('LIST', thumbs.append)
+            #ftp.ftp.cwd(f"{year_path}/thumbs")
+            # thumbs = []
+            # ftp.ftp.retrlines('LIST', thumbs.append)
             
             for img in images:
                 # Thumbs search
                 print(f"\t{img['name']:<70s}", end="\r")
                 
-                thumb_exists = False
-                for line in thumbs:
-                    if img['name'] in line:
-                        thumb_exists = True
-                        break
+                #thumb_exists = False
+                # for line in thumbs:
+                #     if img['name'] in line:
+                #         thumb_exists = True
+                #         break
                 
-                thumb_url = f"{url}/photos/{year}/thumbs/{img['name']}" if thumb_exists else ""
+                thumb_url = f"{url}/photos/{year}/thumbs/{img['name']}"
                 
                 all_images.append({
                     'name': img['name'],
@@ -286,7 +357,7 @@ def cmd_gen(args):
     ftp = FTPHandler(args.host, args.user, args.passwd)
     for t in args.type or 'pics':
         if t == 'pics':
-            make_pics(ftp, args.url, args.host, args.user, args.passwd, args.title, args.out, args.maxitems)
+            make_pics(ftp, args.url, args.user, args.title, args.out, args.maxitems)
         elif t == 'neocities':
             print(f'{t}: diz type is not ready')
         elif t == 'blog':
@@ -294,10 +365,13 @@ def cmd_gen(args):
         else:
             print('Bad type format, expected "pics", "neocities".')
     if not args.local:
-        print(f'Pushing {args.out} to FTP host... ', end='')
-        if not ftp.push_file(args.out):
-            print('Error')
-        print('Done.')
+        ftp.ftp.cwd('/')
+        if ftp.test_connection():
+            print(f'Pushing {args.out} to FTP host... ', end='')
+            filename = os.path.basename(args.out)
+            if not ftp.upload_file(args.out, f'/{filename}'):
+                print('Error')
+            print('Done.')
     ftp.close()
 
 def main():
