@@ -46,7 +46,6 @@ class FTPHandler:
     
     def _parse_list_time(self, line):
         # based on ftp.w10.host server
-        #import time
         parts = line.split()
         month_str = parts[5]
         day = parts[6]
@@ -61,12 +60,12 @@ class FTPHandler:
         day = int(day)
         
         if ':' in time_or_year:
-            # Текущий год, время HH:MM
+            # This year
             hour, minute = map(int, time_or_year.split(':'))
             year = datetime.now().year
             second = 0
         else:
-            # Прошлый год, только год
+            # prevew year
             year = int(time_or_year)
             hour = minute = second = 0
         
@@ -74,38 +73,19 @@ class FTPHandler:
         return int(dt.timestamp())
     
     def read_file(self, path):
-        """Прочитать содержимое файла"""
         data = []
         try:
             self.ftp.retrbinary(f'RETR {path}', data.append)
             return b''.join(data).decode('utf-8', errors='ignore')
         except ftplib.all_errors:
             return None
-    # def push_file(self, path):
-    #     try:
-    #         filename = os.path.basename(path)
-    #         with open(path, "rb") as file:
-    #             self.ftp.storbinary(f"STOR {filename}", file)
-    #         return True
-    #     except:
-    #         return False
+
     def upload_file(self, local_path, remote_path):
-        """Отправить файл на FTP сервер
-        
-        Args:
-            local_path (str): Путь к файлу на локальном компьютере
-            remote_path (str): Путь назначения на FTP сервере
-            
-        Returns:
-            bool: True если успешно, False если ошибка
-        """
         try:
-            # Проверяем существование локального файла
             if not os.path.exists(local_path):
-                print(f"Ошибка: файл {local_path} не найден")
+                print(f"Error: local {local_path} not found")
                 return False
             
-            # Если remote_path содержит директорию, создаём её на сервере
             remote_dir = os.path.dirname(remote_path)
             if remote_dir:
                 self._ensure_remote_dir(remote_dir)
@@ -130,36 +110,34 @@ class FTPHandler:
             return False
 
     def _ensure_remote_dir(self, remote_dir):
-        """Создаёт директорию на FTP сервере, если её нет"""
+        # check remote directory
         try:
-            # Пытаемся перейти в директорию
             self.ftp.cwd(remote_dir)
-            self.ftp.cwd('..')  # Возвращаемся обратно
+            self.ftp.cwd('..')
         except ftplib.all_errors:
-            # Директория не существует, создаём её
+            # creating a missing directory
             try:
                 self.ftp.mkd(remote_dir)
-                print(f"✓ Создана директория: {remote_dir}")
             except ftplib.all_errors as e:
-                print(f"Предупреждение: не удалось создать директорию {remote_dir}: {e}")
+                print(f"Warning: {remote_dir} doesn't create: {e}")
+    # TODO: Remove or change test
     def test_connection(self):
-        """Тестирует соединение и права доступа"""
         try:
             current_dir = self.ftp.pwd()
-            print(f"✓ Соединение активно")
-            print(f"✓ Текущая директория: {current_dir}")
+            print("Connection active.")
+            print(f"PWD: {current_dir}")
             
-            # Пытаемся создать тестовый файл
+            # Trying make test file
             test_file = f'/test_{int(datetime.now().timestamp())}.txt'
             self.ftp.storbinary(f'STOR {test_file}', open(__file__, 'rb'))
             
             if self.ftp.size(test_file):
                 self.ftp.delete(test_file)
-                print(f"✓ Права доступа на запись подтверждены")
+                print(f"Write access rights confirmed.")
                 return True
             
         except ftplib.all_errors as e:
-            print(f"✗ Ошибка: {e}")
+            print(f"Error: {e}")
             return False
     def close(self):
         self.ftp.quit()
@@ -168,7 +146,6 @@ class FTPHandler:
 
 # XML UTILITIES
 def escape_xml(text):
-    """Экранирует символы XML"""
     if text is None:
         return ''
     text = str(text)
@@ -180,12 +157,10 @@ def escape_xml(text):
     return text
 
 def format_rfc822_date(timestamp):
-    """Форматирует дату в RFC 822"""
     dt = datetime.fromtimestamp(timestamp)
     return dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
 
 def format_iso8601_date(timestamp):
-    """Форматирует дату в ISO 8601"""
     dt = datetime.fromtimestamp(timestamp)
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -205,13 +180,12 @@ class FeedGenerator:
         raise NotImplementedError
     
     def escape(self, text):
-        """Экранирует текст для XML"""
         return escape_xml(text)
 
 class AtomGenerator(FeedGenerator):
-    """Генератор Atom 1.0 ленты без использования xml модуля"""
+    # Atom 1.0 generator without xml mobule because i fucked built-in escaping  
     def generate(self):
-        """Генерирует Atom ленту"""
+        # TODO: Maybe need own xml builder
         lines = []
         lines.append('<?xml version="1.0" encoding="UTF-8"?>')
         lines.append('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">')
@@ -308,19 +282,11 @@ def make_pics(ftp, url, user, title, out, maxitems):
             print(f"Dir: {year:<80s}")
             images = ftp.list_files(year_path, pattern=".jpg")
 
-            #ftp.ftp.cwd(f"{year_path}/thumbs")
-            # thumbs = []
-            # ftp.ftp.retrlines('LIST', thumbs.append)
             
             for img in images:
                 # Thumbs search
                 print(f"\t{img['name']:<70s}", end="\r")
                 
-                #thumb_exists = False
-                # for line in thumbs:
-                #     if img['name'] in line:
-                #         thumb_exists = True
-                #         break
                 
                 thumb_url = f"{url}/photos/{year}/thumbs/{img['name']}"
                 
@@ -340,10 +306,9 @@ def make_pics(ftp, url, user, title, out, maxitems):
     all_images = all_images[:maxitems]
 
     # init RSS gen
-    # TODO: Give choice to select lang
+    # TODO: Give choice to select lang (or not?)
     atom_generator = AtomGenerator(config={"title":title, "description":description,\
-                                           "site_url":url, "output_file":out,\
-                                            "lang":"ru-RU"})
+                                           "site_url":url, "output_file":out})
 
     # Making RSS items
     atom_generator.set_items(create_feed_items(all_images))
@@ -394,7 +359,7 @@ neocities   (WIP) neocities.org like feed
     a.add_argument('--out', '-o', help="Output feed file name", default='feed.xml')
     a.add_argument('--maxitems', '-m', help="Max items of feed", default=25)
     a.add_argument('--local', help="Disable upload output file back to FTP server", action='store_true')
-    a.add_argument('--ignorecontent', help="Don't write content of /blog/* files to feed items", action='store_true')
+    a.add_argument('--ignorecontent', help="(WIP) Don't write content of /blog/* files to feed items", action='store_true')
 
     a.set_defaults(func=cmd_gen)
 
