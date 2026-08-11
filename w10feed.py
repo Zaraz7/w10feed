@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from html.parser import HTMLParser
 import argparse
-import time
 
 
 class FTPHandler:
@@ -383,8 +382,8 @@ def main():
     a = sub.add_parser('gen', help="Generate feed", formatter_class=argparse.RawTextHelpFormatter)
     a.add_argument('--type', '-t', help='''Type of feed
 pics        gallery similar to https://img.triapul.cz/sect.html
-blog        /blog/* feed
-neocities   neocities.org like feed
+blog        (WIP) /blog/* feed
+neocities   (WIP) neocities.org like feed
 
 ''', nargs='+', required=True)
     a.add_argument('--url', help="URL of site")
