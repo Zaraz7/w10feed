@@ -345,7 +345,7 @@ def cmd_gen(args):
 
 def main():
     # cli
-    argp = argparse.ArgumentParser(description=f'w10feed {__version__} - tool for generate RSS feed HumsterCMS sites and http://w10.host sites', usage='''use "%(prog)s --help" for more information
+    argp = argparse.ArgumentParser(description=f'w10feed {__version__} - tool for generate RSS feed HamsterCMS sites and http://w10.host sites', usage='''use "%(prog)s --help" for more information
 ''', formatter_class=argparse.RawDescriptionHelpFormatter)
     argp.add_argument('-v', '--version', action='version', version=f'%(prog)s {__version__}')
     sub = argp.add_subparsers(dest='cmd')
