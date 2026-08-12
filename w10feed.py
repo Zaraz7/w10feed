@@ -310,7 +310,6 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
     all_images = all_images[:maxitems]
 
     # init RSS gen
-    # TODO: Give choice to select lang (or not?)
     atom_generator = RSSGenerator(config={"title":title, "description":description,\
                                            "site_url":url, "output_file":out,\
                                             "lang":lang})
