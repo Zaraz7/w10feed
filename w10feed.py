@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+__version__ = '0.1.1'
 import ftplib
 import os
 import re
 from datetime import datetime
-from pathlib import Path
 from html.parser import HTMLParser
 import argparse
 
@@ -183,8 +183,8 @@ class FeedGenerator:
     def escape(self, text):
         return escape_xml(text)
 
-class AtomGenerator(FeedGenerator):
-    # Atom 1.0 generator without xml mobule because i fucked built-in escaping  
+class RSSGenerator(FeedGenerator):
+    # RSS 2.0 generator without xml mobule because i fucked built-in escaping  
     def generate(self):
         # TODO: Maybe need own xml builder
         lines = []
@@ -197,6 +197,9 @@ class AtomGenerator(FeedGenerator):
         lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
         lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
         lines.append(f'  <link href="{self.escape(self.config["site_url"])}" rel="alternate"/>')
+        lines.append(f'  <language>{self.escape(self.config["lang"])}</language>')
+        lines.append(f'  <lastBuildDate>{format_rfc822_date(datetime.now().timestamp())}</lastBuildDate>')
+        lines.append(f'  <generator>w10feed/{__version__}</generator>')
         
         # Items
         for i, item in enumerate(self.items):
@@ -254,7 +257,7 @@ def create_feed_items(images):
     return items
 
 
-def make_pics(ftp, url, user, title, out, maxitems):
+def make_pics(ftp, url, user, title, lang, out, maxitems):
     PHOTOS_PATH = '/photos'
     title = title if title else user
     all_images = []
@@ -308,8 +311,9 @@ def make_pics(ftp, url, user, title, out, maxitems):
 
     # init RSS gen
     # TODO: Give choice to select lang (or not?)
-    atom_generator = AtomGenerator(config={"title":title, "description":description,\
-                                           "site_url":url, "output_file":out})
+    atom_generator = RSSGenerator(config={"title":title, "description":description,\
+                                           "site_url":url, "output_file":out,\
+                                            "lang":lang})
 
     # Making RSS items
     atom_generator.set_items(create_feed_items(all_images))
@@ -322,7 +326,7 @@ def cmd_gen(args):
     ftp = FTPHandler(args.host, args.user, args.passwd)
     for t in args.type or 'pics':
         if t == 'pics':
-            make_pics(ftp, args.url, args.user, args.title, args.out, args.maxitems)
+            make_pics(ftp, args.url, args.user, args.title, args.lang, args.out, args.maxitems)
         elif t == 'neocities':
             print(f'{t}: diz type is not ready')
         elif t == 'blog':
@@ -341,8 +345,9 @@ def cmd_gen(args):
 
 def main():
     # cli
-    argp = argparse.ArgumentParser(description='w10feed', usage='''use "%(prog)s --help" for more information
+    argp = argparse.ArgumentParser(description=f'w10feed {__version__} - tool for generate RSS feed HumsterCMS sites and http://w10.host sites', usage='''use "%(prog)s --help" for more information
 ''', formatter_class=argparse.RawDescriptionHelpFormatter)
+    argp.add_argument('-v', '--version', action='version', version=f'%(prog)s {__version__}')
     sub = argp.add_subparsers(dest='cmd')
     ## Generate
     a = sub.add_parser('gen', help="Generate feed", formatter_class=argparse.RawTextHelpFormatter)
@@ -354,12 +359,13 @@ neocities   (WIP) neocities.org like feed
 ''', nargs='+', required=True)
     a.add_argument('--url', help="URL of site")
     a.add_argument('--host', help="FTP host")
-    a.add_argument('--user', "-n", help="FTP user")
+    a.add_argument('--user', "-u", help="FTP user")
     a.add_argument('--passwd', "-p", help="FTP user's password")
-    a.add_argument('--title', help="Title of feed. Default = user")
+    a.add_argument('--title', help="Title of feed")
     a.add_argument('--out', '-o', help="Output feed file name", default='feed.xml')
     a.add_argument('--maxitems', '-m', help="Max items of feed", default=25)
     a.add_argument('--local', help="Disable upload output file back to FTP server", action='store_true')
+    a.add_argument('--lang', help="Language of document", default='en-US')
     a.add_argument('--ignorecontent', help="(WIP) Don't write content of /blog/* files to feed items", action='store_true')
 
     a.set_defaults(func=cmd_gen)
