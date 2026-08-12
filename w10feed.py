@@ -12,7 +12,8 @@ class FTPHandler:
     def __init__(self, host, user, password):
         self.ftp = ftplib.FTP(host, user, password)
         self.ftp.encoding = 'utf-8'
-        self.ftp.sock.settimeout(5) 
+        # TODO: Create except for ftp timeout
+        self.ftp.sock.settimeout(15) # It's still not help
     
     def list_files(self, path, pattern=""):
         # Get list with mtime
@@ -96,17 +97,17 @@ class FTPHandler:
                 cmd = f'STOR {remote_path}'
                 self.ftp.storbinary(cmd, file)
             
-            print(f"✓ Файл успешно загружен: {remote_path}")
+            print(f"File uploaded: {remote_path}")
             return True
             
         except FileNotFoundError:
-            print(f"Ошибка: файл {local_path} не найден")
+            print(f"Error: file {local_path} not found")
             return False
         except ftplib.all_errors as e:
-            print(f"Ошибка FTP: {e}")
+            print(f"FTP error: {e}")
             return False
         except Exception as e:
-            print(f"Неожиданная ошибка: {e}")
+            print(f"Error: {e}")
             return False
 
     def _ensure_remote_dir(self, remote_dir):
