@@ -7,7 +7,7 @@ Generator RSS 2.0 feed for [HamsterCMS](http://hamster.oldcities.org) sites and 
 I did this primarily for myself, because I wanted to join the party of [subversive.pics](https://img.triapul.cz/sect.html) or [Ocular Webring](https://codeberg.org/rostiger/ocular_webring).
 It It generates a news feed with pictures based on your site's `/photos` directory.
 
-[Example](http://zaraz7.narod.ws/img.xml):
+[Example](https://zaraz7.narod.ws/img.xml):
 
 ```bash
 w10feed.py gen --type pics --url "https://zaraz7.narod.ws" --user zaraz7 --host ftp.narod.ws --title "Zaraz7's Gallery" -o img.xml --lang ru-RU -p password_example
