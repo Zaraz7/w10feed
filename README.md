@@ -20,3 +20,5 @@ w10feed.py gen --type pics --url "https://zaraz7.narod.ws" --user zaraz7 --host 
   - For /blog
   - Neocities like feed
 - Config for similar generations
+- Setup
+- Service unit or cron script
