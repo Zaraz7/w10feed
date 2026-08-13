@@ -22,3 +22,4 @@ w10feed.py gen --type pics --url "https://zaraz7.narod.ws" --user zaraz7 --host 
 - Config for similar generations
 - Setup
 - Service unit or cron script
+- localhost option
