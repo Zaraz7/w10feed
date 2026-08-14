@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-__version__ = '0.1.1'
+
 import ftplib
 import os
-import re
-from datetime import datetime
-from html.parser import HTMLParser
-import argparse
-
+#from datetime import datetime
+from utils import *
+from version import __version__
 
 class FTPHandler:
     def __init__(self, host, user, password):
         self.ftp = ftplib.FTP(host, user, password)
         self.ftp.encoding = 'utf-8'
-        # TODO: Create except for ftp timeout
-        self.ftp.sock.settimeout(15) # It's still not help
+        self.ftp.sock.settimeout(15)
     
     def list_files(self, path, pattern=""):
-        # Get list with mtime
         files = []
         try:
             self.ftp.cwd(path)
@@ -41,9 +37,6 @@ class FTPHandler:
         except ftplib.all_errors:
             pass
         return sorted(files, key=lambda x: x['mtime'], reverse=True)
-    
-    def list_filenames(self, path, pattern=""):
-        return [i["name"] for i in self.list_filenames(path, pattern)]
     
     def _parse_list_time(self, line):
         # based on ftp.w10.host server
@@ -92,7 +85,6 @@ class FTPHandler:
                 self._ensure_remote_dir(remote_dir)
             
             self.ftp.cwd("/")
-            # Открываем файл в бинарном режиме и отправляем
             with open(local_path, 'rb') as file:
                 cmd = f'STOR {remote_path}'
                 self.ftp.storbinary(cmd, file)
@@ -111,7 +103,6 @@ class FTPHandler:
             return False
 
     def _ensure_remote_dir(self, remote_dir):
-        # check remote directory
         try:
             self.ftp.cwd(remote_dir)
             self.ftp.cwd('..')
@@ -140,31 +131,9 @@ class FTPHandler:
         except ftplib.all_errors as e:
             print(f"Error: {e}")
             return False
+    
     def close(self):
         self.ftp.quit()
-
-
-
-# XML UTILITIES
-def escape_xml(text):
-    if text is None:
-        return ''
-    text = str(text)
-    text = text.replace("&", "&amp;")
-    text = text.replace("<", "&lt;")
-    text = text.replace(">", "&gt;")
-    text = text.replace('"', "&quot;")
-    text = text.replace("'", "&apos;")
-    return text
-
-def format_rfc822_date(timestamp):
-    dt = datetime.fromtimestamp(timestamp)
-    return dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
-
-def format_iso8601_date(timestamp):
-    dt = datetime.fromtimestamp(timestamp)
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-
 
 class FeedGenerator:
     def __init__(self, config):
@@ -222,19 +191,15 @@ class RSSGenerator(FeedGenerator):
             lines.append('  </item>')
         
         lines.append('</channel></rss>')
-        
-        
         return '\n'.join(lines)
     
     def _needs_cdata(self, text):
         return '<' in text and '>' in text
 
-# TODO: Make class for different feed styles gen
+# ============= FEED ITEM CREATORS =============
 def create_feed_items(images):
     items = []
-    
     for i, img in enumerate(images):
-
         print(f"Creating item {i+1}/{len(images)}: {img['name']:<70s}", end="\r")
         
         title = img['name']
@@ -253,7 +218,6 @@ def create_feed_items(images):
             'description': desc_html
         }
         items.append(item)
-    
     return items
 
 
@@ -261,13 +225,10 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
     PHOTOS_PATH = '/photos'
     title = title if title else user
     all_images = []
-    description = ''
+    
     try:
         humans = ftp.read_file('/humans.txt')
-        if humans:
-            description = humans.rstrip("\n")
-        else:
-            description = f'Site feed for {title}'
+        description = humans.rstrip("\n") if humans else f'Site feed for {title}'
 
         ftp.ftp.cwd(PHOTOS_PATH)
         lines = []
@@ -286,11 +247,12 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
             print(f"Dir: {year:<80s}")
             images = ftp.list_files(year_path, pattern=".jpg")
 
+
+            
+            
             
             for img in images:
-                # Thumbs search
                 print(f"\t{img['name']:<70s}", end="\r")
-                
                 
                 thumb_url = f"{url}/photos/{year}/thumbs/{img['name']}"
                 
@@ -303,78 +265,22 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
                 })
     
     except ftplib.all_errors as e:
-        print(f"Error with acces: {e}")
+        print(f"Error with access: {e}")
+    
     print("Done images search")
     
     all_images.sort(key=lambda x: x['mtime'], reverse=True)
     all_images = all_images[:maxitems]
 
-    # init RSS gen
-    atom_generator = RSSGenerator(config={"title":title, "description":description,\
-                                           "site_url":url, "output_file":out,\
-                                            "lang":lang})
+    rss_generator = RSSGenerator(config={
+        "title": title,
+        "description": description,
+        "site_url": url,
+        "output_file": out,
+        "lang": lang
+    })
 
-    # Making RSS items
-    atom_generator.set_items(create_feed_items(all_images))
+    rss_generator.set_items(create_feed_items(all_images))
     
     with open(out, 'w', encoding='utf-8') as f:
-        f.write(atom_generator.generate())
-
-
-def cmd_gen(args):
-    ftp = FTPHandler(args.host, args.user, args.passwd)
-    for t in args.type or 'pics':
-        if t == 'pics':
-            make_pics(ftp, args.url, args.user, args.title, args.lang, args.out, args.maxitems)
-        elif t == 'neocities':
-            print(f'{t}: diz type is not ready')
-        elif t == 'blog':
-            print(f'{t}: diz type is not ready')
-        else:
-            print('Bad type format, expected "pics", "neocities".')
-    if not args.local:
-        ftp.ftp.cwd('/')
-        if ftp.test_connection():
-            print(f'Pushing {args.out} to FTP host... ', end='')
-            filename = os.path.basename(args.out)
-            if not ftp.upload_file(args.out, f'/{filename}'):
-                print('Error')
-            print('Done.')
-    ftp.close()
-
-def main():
-    # cli
-    argp = argparse.ArgumentParser(description=f'w10feed {__version__} - tool for generate RSS feed HamsterCMS sites and http://w10.host sites', usage='''use "%(prog)s --help" for more information
-''', formatter_class=argparse.RawDescriptionHelpFormatter)
-    argp.add_argument('-v', '--version', action='version', version=f'%(prog)s {__version__}')
-    sub = argp.add_subparsers(dest='cmd')
-    ## Generate
-    a = sub.add_parser('gen', help="Generate feed", formatter_class=argparse.RawTextHelpFormatter)
-    a.add_argument('--type', '-t', help='''Type of feed
-pics        gallery similar to https://img.triapul.cz/sect.html
-blog        (WIP) /blog/* feed
-neocities   (WIP) neocities.org like feed
-
-''', nargs='+', required=True)
-    a.add_argument('--url', help="URL of site")
-    a.add_argument('--host', help="FTP host")
-    a.add_argument('--user', "-u", help="FTP user")
-    a.add_argument('--passwd', "-p", help="FTP user's password")
-    a.add_argument('--title', help="Title of feed")
-    a.add_argument('--out', '-o', help="Output feed file name", default='feed.xml')
-    a.add_argument('--maxitems', '-m', help="Max items of feed", default=25)
-    a.add_argument('--local', help="Disable upload output file back to FTP server", action='store_true')
-    a.add_argument('--lang', help="Language of document", default='en-US')
-    a.add_argument('--ignorecontent', help="(WIP) Don't write content of /blog/* files to feed items", action='store_true')
-
-    a.set_defaults(func=cmd_gen)
-
-    args = argp.parse_args()
-    if not hasattr(args, 'func'):
-        argp.print_help()
-        return
-    args.func(args)
-
-
-if __name__ == '__main__':
-    main()
+        f.write(rss_generator.generate())
