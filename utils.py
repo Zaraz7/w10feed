@@ -13,7 +13,7 @@ def escape_xml(text):
 
 def format_rfc822_date(timestamp):
     dt = datetime.fromtimestamp(timestamp)
-    return dt.strftime('%a, %d %b %Y %H:%M:%S +0000')
+    return dt.strftime('%a, %d %b %Y %H:%M:%S +0300') # временное решение. Необходимо добавить опцию для разных часовых поясов
 
 def format_iso8601_date(timestamp):
     dt = datetime.fromtimestamp(timestamp)

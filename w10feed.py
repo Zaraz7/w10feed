@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+# w10feed.py - Feed generators for w10feed
 
 import ftplib
 import os
+import re
 from utils import *
 from version import __version__
 
@@ -36,6 +38,23 @@ class FTPHandler:
         except ftplib.all_errors:
             pass
         return sorted(files, key=lambda x: x['mtime'], reverse=True)
+    
+    def list_dirs(self, path):
+        """Get list of directories in path"""
+        dirs = []
+        try:
+            self.ftp.cwd(path)
+            lines = []
+            self.ftp.retrlines('LIST', lines.append)
+            
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 9 and parts[0][0] == 'd' and parts[8][0] != '.':
+                    dirname = ' '.join(parts[8:])
+                    dirs.append(dirname)
+        except ftplib.all_errors:
+            pass
+        return dirs
     
     def _parse_list_time(self, line):
         # based on ftp.w10.host server
@@ -111,7 +130,7 @@ class FTPHandler:
                 self.ftp.mkd(remote_dir)
             except ftplib.all_errors as e:
                 print(f"Warning: {remote_dir} doesn't create: {e}")
-    # TODO: Remove or change test
+    
     def test_connection(self):
         try:
             current_dir = self.ftp.pwd()
@@ -164,7 +183,7 @@ class RSSGenerator(FeedGenerator):
         lines.append(f'  <atom:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
         lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
         lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
-        lines.append(f'  <link href="{self.escape(self.config["site_url"])}" rel="alternate"/>')
+        lines.append(f'  <link>{self.escape(self.config["site_url"])}</link>')
         lines.append(f'  <language>{self.escape(self.config["lang"])}</language>')
         lines.append(f'  <lastBuildDate>{format_rfc822_date(datetime.now().timestamp())}</lastBuildDate>')
         lines.append(f'  <generator>w10feed/{__version__}</generator>')
@@ -186,7 +205,7 @@ class RSSGenerator(FeedGenerator):
                 lines.append(f'      {self.escape(item["description"])}')
             lines.append('    </description>')
 
-            lines.append(f'    <pubDate>{format_iso8601_date(item["timestamp"])}</pubDate>')
+            lines.append(f'    <pubDate>{format_rfc822_date(item["timestamp"])}</pubDate>')
             lines.append('  </item>')
         
         lines.append('</channel></rss>')
@@ -218,6 +237,95 @@ def create_feed_items(images):
         items.append(item)
     return items
 
+def create_blog_items(blog_posts, site_url, no_description=False):
+    """Create feed items from blog posts"""
+    items = []
+    for i, post in enumerate(blog_posts):
+        print(f"Creating item {i+1}/{len(blog_posts)}: {post['name']:<70s}", end="\r")
+        
+        # Extract title from first <h3> or use filename
+        content = post['content']
+        title_match = re.search(r'<h3[^>]*>(.*?)</h3>', content, re.IGNORECASE | re.DOTALL)
+        
+        if title_match:
+            title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+            # Remove first <h3> from description
+            description = re.sub(r'<h3[^>]*>.*?</h3>', '', content, count=1, flags=re.IGNORECASE | re.DOTALL)
+        else:
+            title = post['name'].replace('.txt', '').replace('_', ' ').title()
+            description = content
+        
+        # If no_description flag is True, use empty description
+        if no_description:
+            description = ''
+        
+        item = {
+            'title': title,
+            'link': f"{site_url}/blog/{post['name']}",
+            'id': f"{site_url}/blog/{post['name']}",
+            'timestamp': post['mtime'],
+            'description': description
+        }
+        items.append(item)
+    return items
+
+def make_blog(ftp, url, user, title, lang, out, maxitems, sort_by='mtime', no_description=False):
+    """Generate RSS feed from blog posts"""
+    BLOG_PATH = '/blog'
+    title = title if title else f"{user}'s Blog"
+    
+    try:
+        # Read humans.txt for description
+        humans = ftp.read_file('/humans.txt')
+        description = humans.rstrip("\n") if humans else f'Blog feed for {title}'
+        
+        # Get list of .txt files in /blog
+        blog_files = ftp.list_files(BLOG_PATH, pattern=".txt")
+        
+        if not blog_files:
+            print("No blog posts found in /blog directory")
+            return
+        
+        print(f"Found {len(blog_files)} blog posts")
+        
+        # Read content of each blog post
+        blog_posts = []
+        for file_info in blog_files:
+            content = ftp.read_file(f"{BLOG_PATH}/{file_info['name']}")
+            if content:
+                blog_posts.append({
+                    'name': file_info['name'],
+                    'mtime': file_info['mtime'],
+                    'content': content
+                })
+        
+        # Sort posts
+        if sort_by == 'name':
+            blog_posts.sort(key=lambda x: x['name'], reverse=True)
+        else:  # sort by mtime (default)
+            blog_posts.sort(key=lambda x: x['mtime'], reverse=True)
+        
+        # Limit items
+        blog_posts = blog_posts[:maxitems]
+        
+        # Generate RSS
+        rss_generator = RSSGenerator(config={
+            "title": title,
+            "description": description,
+            "site_url": url,
+            "output_file": out,
+            "lang": lang
+        })
+        
+        rss_generator.set_items(create_blog_items(blog_posts, url, no_description))
+        
+        with open(out, 'w', encoding='utf-8') as f:
+            f.write(rss_generator.generate())
+        
+        print(f"\nBlog feed generated: {out}")
+        
+    except ftplib.all_errors as e:
+        print(f"Error accessing FTP: {e}")
 
 def make_pics(ftp, url, user, title, lang, out, maxitems):
     PHOTOS_PATH = '/photos'
@@ -244,10 +352,6 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
             year_path = f"{PHOTOS_PATH}/{year}"
             print(f"Dir: {year:<80s}")
             images = ftp.list_files(year_path, pattern=".jpg")
-
-
-            
-            
             
             for img in images:
                 print(f"\t{img['name']:<70s}", end="\r")
