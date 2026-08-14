@@ -2,7 +2,6 @@
 
 import ftplib
 import os
-#from datetime import datetime
 from utils import *
 from version import __version__
 
@@ -196,7 +195,6 @@ class RSSGenerator(FeedGenerator):
     def _needs_cdata(self, text):
         return '<' in text and '>' in text
 
-# ============= FEED ITEM CREATORS =============
 def create_feed_items(images):
     items = []
     for i, img in enumerate(images):
