@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-# w1f.py - CLI interface for w10feed
-
 import argparse
 import os
-from version import __version__
-from w10feed import make_pics, make_blog, FTPHandler
+from w10feed import make_pics, make_blog, FTPHandler, __version__
 
 def cmd_gen(args):
     ftp = FTPHandler(args.host, args.user, args.passwd)

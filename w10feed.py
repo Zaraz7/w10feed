@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# w10feed.py - Feed generators for w10feed
-
 import ftplib
 import os
 import re
@@ -194,16 +192,18 @@ class RSSGenerator(FeedGenerator):
             
             lines.append('  <item>')
             lines.append(f'    <title>{self.escape(item["title"])}</title>')
-            lines.append(f'    <link>{self.escape(item["link"])}</link>')
-            lines.append(f'    <guid>{self.escape(item["id"])}</guid>')
+            uri = iri_to_uri(self.escape(item["link"]))
+            lines.append(f'    <link>{uri}</link>')
+            lines.append(f'    <guid>{uri}</guid>')
             
             # Description with or without html
-            lines.append('    <description>')
-            if self._needs_cdata(item['description']):
-                lines.append(f'      <![CDATA[{item["description"]}]]>')
-            else:
-                lines.append(f'      {self.escape(item["description"])}')
-            lines.append('    </description>')
+            if item['description'] != '':
+                lines.append('    <description>')
+                if self._needs_cdata(item['description']):
+                    lines.append(f'      <![CDATA[{item["description"]}]]>')
+                else:
+                    lines.append(f'      {self.escape(item["description"])}')
+                lines.append('    </description>')
 
             lines.append(f'    <pubDate>{format_rfc822_date(item["timestamp"])}</pubDate>')
             lines.append('  </item>')
@@ -214,6 +214,7 @@ class RSSGenerator(FeedGenerator):
     def _needs_cdata(self, text):
         return '<' in text and '>' in text
 
+# Wow, this is still peace of shi
 def create_feed_items(images):
     items = []
     for i, img in enumerate(images):
@@ -238,7 +239,6 @@ def create_feed_items(images):
     return items
 
 def create_blog_items(blog_posts, site_url, no_description=False):
-    """Create feed items from blog posts"""
     items = []
     for i, post in enumerate(blog_posts):
         print(f"Creating item {i+1}/{len(blog_posts)}: {post['name']:<70s}", end="\r")
@@ -270,7 +270,6 @@ def create_blog_items(blog_posts, site_url, no_description=False):
     return items
 
 def make_blog(ftp, url, user, title, lang, out, maxitems, sort_by='mtime', no_description=False):
-    """Generate RSS feed from blog posts"""
     BLOG_PATH = '/blog'
     title = title if title else f"{user}'s Blog"
     

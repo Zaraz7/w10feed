@@ -1,4 +1,22 @@
 from datetime import datetime
+from urllib.parse import quote, urlparse, urlunparse
+
+def iri_to_uri(iri):
+    parts = urlparse(iri)
+    try:
+        netloc = parts.netloc.encode('idna').decode('ascii')
+    except (UnicodeError, UnicodeDecodeError):
+        netloc = parts.netloc
+    
+    return urlunparse((
+        parts.scheme,
+        netloc,
+        quote(parts.path, safe='/', encoding='utf-8'),
+        quote(parts.params, safe='', encoding='utf-8'),
+        quote(parts.query, safe='=&', encoding='utf-8'),
+        quote(parts.fragment, safe='', encoding='utf-8')
+    ))
+
 # XML UTILITIES
 def escape_xml(text):
     if text is None:
