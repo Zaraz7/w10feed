@@ -13,7 +13,7 @@ It is generates a news feed with .jpg pictures based on your site's `/photos` di
 python3 w1f.py gen --type pics --url "https://zaraz7.narod.ws" --host ftp.narod.ws --title "Галерея Zaraz7" -o img.xml --lang ru-RU --maxitems 50 --user zaraz7 -p password_example
 ```
 ### Blog
-It can generates blog feed from .txt files of `/blog` directory. If you want publications without description (content of your txt files), only link to your web site and title, you can use `--no-description` flag.
+It can generate blog feed from .txt files of `/blog` directory. If you want publications without description (content of your txt files), only link to your web site and title, you can use `--no-description` flag.
 
 [Example](https://zaraz7.narod.ws/blog.xml):
 ```bash
