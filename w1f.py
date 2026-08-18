@@ -34,35 +34,30 @@ def run_profile(profile_name, args=None):
     
     profile_config = PROFILES[profile_name]
     
-    # Check if we need to prompt for password
     if profile_config.get('passwd', '') == '' and (not args or not args.passwd):
         password = get_password(f"Enter password for profile '{profile_name}': ")
         profile_config = profile_config.copy()
         profile_config['passwd'] = password
     
-    # Merge with CLI args
     config = merge_config(profile_config, args)
     
-    # Handle TYPE (can be string or list)
     types = config['type']
     if isinstance(types, str):
         types = [types]
     elif not isinstance(types, list):
         types = []
     
-    # Create FTP connection
-    ftp = FTPHandler(config['host'], config['user'], config['passwd'])
+    handler = FTPHandler(config['host'], config['user'], config['passwd'])
     
-    # Run each type
     for t in types:
         if t == 'pics':
             make_pics(
-                ftp, config['url'], config['user'], config['title'],
+                handler, config['url'], config['user'], config['title'],
                 config['lang'], config['out'], config['maxitems']
             )
         elif t == 'blog':
             make_blog(
-                ftp, config['url'], config['user'], config['title'],
+                handler, config['url'], config['user'], config['title'],
                 config['lang'], config['out'], config['maxitems'],
                 config.get('sort', 'mtime'), config.get('no_description', False)
             )
@@ -71,31 +66,29 @@ def run_profile(profile_name, args=None):
         else:
             print(f'Bad type format: {t}. Expected "pics", "blog", "neocities"')
     
-    # Upload if not local
     if not config.get('local', False):
-        ftp.ftp.cwd('/')
-        if ftp.test_connection():
+        if handler.test_connection():
             print(f'Pushing {config["out"]} to FTP host... ', end='')
             filename = os.path.basename(config['out'])
-            if not ftp.upload_file(config['out'], f'/{filename}'):
+            if not handler.upload_file(config['out'], f'/{filename}'):
                 print('Error')
             else:
                 print('Done.')
     
-    ftp.close()
+    handler.close()
     return True
 
 def cmd_gen(args):
     if not args.passwd:
         args.passwd = get_password("Enter FTP password: ")
 
-    ftp = FTPHandler(args.host, args.user, args.passwd)
+    handler = FTPHandler(args.host, args.user, args.passwd)
     
     for t in args.type:
         if t == 'pics':
-            make_pics(ftp, args.url, args.user, args.title, args.lang, args.out, args.maxitems)
+            make_pics(handler, args.url, args.user, args.title, args.lang, args.out, args.maxitems)
         elif t == 'blog':
-            make_blog(ftp, args.url, args.user, args.title, args.lang, args.out, 
+            make_blog(handler, args.url, args.user, args.title, args.lang, args.out, 
                      args.maxitems, args.sort, args.no_description)
         elif t == 'neocities':
             print(f'{t}: Diz type is not ready')
@@ -103,15 +96,14 @@ def cmd_gen(args):
             print(f'Bad type format: {t}. Expected "pics", "blog", "neocities"')
     
     if not args.local:
-        ftp.ftp.cwd('/')
-        if ftp.test_connection():
+        if handler.test_connection():
             print(f'Pushing {args.out} to FTP host... ', end='')
             filename = os.path.basename(args.out)
-            if not ftp.upload_file(args.out, f'/{filename}'):
+            if not handler.upload_file(args.out, f'/{filename}'):
                 print('Error')
             else:
                 print('Done.')
-    ftp.close()
+    handler.close()
 
 def cmd_profile(args):
     if not PROFILES:
@@ -128,13 +120,11 @@ def cmd_profile(args):
             if not run_profile(profile_name, args):
                 success = False
         if success:
-            print("\nAll profiles completed successfully.")
+            print("All profiles completed successfully.")
         else:
-            print("\nSome profiles failed.")
+            print("Some profiles failed.")
     else:
-        # Run specific profile
         if args.profile is None:
-            # Use first profile if none specified
             profile_name = list(PROFILES.keys())[0]
             print(f"No profile specified, using first profile: {profile_name}")
         else:

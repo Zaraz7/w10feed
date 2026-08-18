@@ -10,7 +10,9 @@ class FTPHandler:
         self.ftp = ftplib.FTP(host, user, password)
         self.ftp.encoding = 'utf-8'
         self.ftp.sock.settimeout(15)
-    
+    def cd(self, path):
+        self.ftp.cwd(path)
+
     def list_files(self, path, pattern=""):
         files = []
         try:
@@ -100,7 +102,7 @@ class FTPHandler:
             if remote_dir:
                 self._ensure_remote_dir(remote_dir)
             
-            self.ftp.cwd("/")
+            self.ftp.cwd(remote_dir)
             with open(local_path, 'rb') as file:
                 cmd = f'STOR {remote_path}'
                 self.ftp.storbinary(cmd, file)
@@ -271,17 +273,17 @@ def create_blog_items(blog_posts, site_url, no_description=False):
         items.append(item)
     return items
 
-def make_blog(ftp, url, user, title, lang, out, maxitems, sort_by='mtime', no_description=False):
+def make_blog(handler, url, user, title, lang, out, maxitems, sort_by='mtime', no_description=False):
     BLOG_PATH = '/blog'
     title = title if title else f"{user}'s Blog"
     
     try:
         # Read humans.txt for description
-        humans = ftp.read_file('/humans.txt')
+        humans = handler.read_file('/humans.txt')
         description = humans.rstrip("\n") if humans else f'Blog feed for {title}'
         
         # Get list of .txt files in /blog
-        blog_files = ftp.list_files(BLOG_PATH, pattern=".txt")
+        blog_files = handler.list_files(BLOG_PATH, pattern=".txt")
         
         if not blog_files:
             print("No blog posts found in /blog directory")
@@ -292,7 +294,7 @@ def make_blog(ftp, url, user, title, lang, out, maxitems, sort_by='mtime', no_de
         # Read content of each blog post
         blog_posts = []
         for file_info in blog_files:
-            content = ftp.read_file(f"{BLOG_PATH}/{file_info['name']}")
+            content = handler.read_file(f"{BLOG_PATH}/{file_info['name']}")
             if content:
                 blog_posts.append({
                     'name': file_info['name'],
@@ -328,31 +330,22 @@ def make_blog(ftp, url, user, title, lang, out, maxitems, sort_by='mtime', no_de
     except ftplib.all_errors as e:
         print(f"Error accessing FTP: {e}")
 
-def make_pics(ftp, url, user, title, lang, out, maxitems):
+def make_pics(handler, url, user, title, lang, out, maxitems):
     PHOTOS_PATH = '/photos'
     title = title if title else user
     all_images = []
     
-    try:
-        humans = ftp.read_file('/humans.txt')
-        description = humans.rstrip("\n") if humans else f'Site feed for {title}'
 
-        ftp.ftp.cwd(PHOTOS_PATH)
-        lines = []
-        ftp.ftp.retrlines('LIST', lines.append)
-        
-        img_dirs = []
-        for line in lines:
-            parts = line.split()
-            if parts[0][0] == 'd' and parts[8][0] != '.' and len(parts) >= 9:
-                dirname = ' '.join(parts[8:])
-                img_dirs.append(dirname)
-        
+    humans = handler.read_file('/humans.txt')
+    description = humans.rstrip("\n") if humans else f'Site feed for {title}'
+
+    img_dirs = handler.list_dirs(PHOTOS_PATH)
+    try:
         # TODO: change "year" to "dir" or somethimg
         for year in sorted(img_dirs, reverse=True):
             year_path = f"{PHOTOS_PATH}/{year}"
             print(f"Dir: {year:<80s}")
-            images = ftp.list_files(year_path, pattern=".jpg")
+            images = handler.list_files(year_path, pattern=".jpg")
             
             for img in images:
                 print(f"\t{img['name']:<70s}", end="\r")
@@ -366,10 +359,9 @@ def make_pics(ftp, url, user, title, lang, out, maxitems):
                     'full_url': f"{url}/photos/{year}/{img['name']}",
                     'thumb_url': thumb_url
                 })
-    
     except ftplib.all_errors as e:
-        print(f"Error with access: {e}")
-    
+        print(f"Error accessing FTP: {e}")
+
     print("Done images search")
     
     all_images.sort(key=lambda x: x['mtime'], reverse=True)
