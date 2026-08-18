@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 import getpass
-from w10feed import make_pics, make_blog, FTPHandler, __version__
+from src.w10feed.w10feed import make_pics, make_blog, FTPHandler, __version__
 
 try:
     from config import PROFILES
@@ -119,11 +119,10 @@ def cmd_profile(args):
         print("Please create a config.py file with PROFILES dictionary")
         return
     
-    if args.profile == '*':
+    if args.profile == 'all':
         # Run all profiles
         success = True
         for profile_name in PROFILES:
-            print(f"\n{'='*60}")
             print(f"Running profile: {profile_name}")
             print(f"{'='*60}")
             if not run_profile(profile_name, args):

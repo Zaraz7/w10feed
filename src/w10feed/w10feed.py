@@ -2,8 +2,8 @@
 import ftplib
 import os
 import re
-from utils import *
-from version import __version__
+from .utils import *
+from .version import __version__
 
 class FTPHandler:
     def __init__(self, host, user, password):
@@ -129,11 +129,12 @@ class FTPHandler:
             except ftplib.all_errors as e:
                 print(f"Warning: {remote_dir} doesn't create: {e}")
     
-    def test_connection(self):
+    def test_connection(self, debug=False):
         try:
             current_dir = self.ftp.pwd()
-            print("Connection active.")
-            print(f"PWD: {current_dir}")
+            if debug:
+                print("Connection active.")
+                print(f"PWD: {current_dir}")
             
             # Trying make test file
             test_file = f'/test_{int(datetime.now().timestamp())}.txt'
@@ -141,7 +142,8 @@ class FTPHandler:
             
             if self.ftp.size(test_file):
                 self.ftp.delete(test_file)
-                print(f"Write access rights confirmed.")
+                if debug:
+                    print(f"Write access rights confirmed.")
                 return True
             
         except ftplib.all_errors as e:
