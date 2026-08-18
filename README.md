@@ -27,7 +27,7 @@ python3 w1f.py gen --type blog --url https://zaraz7.narod.ws --host ftp.narod.ws
   - [x] For /blog
     - [ ] Fix links in HTML description 
   - [ ] Neocities like feed
-- [ ] Config for similar generations
-- [ ] Setup
+- [x] Config for similar generations
+- [ ] Setup?
 - [ ] Service unit or cron script
 - [ ] localhost option
