@@ -219,3 +219,5 @@ __marimo__/
 
 # Feeds
 *.xml
+# Config
+config.py
