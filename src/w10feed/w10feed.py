@@ -253,15 +253,30 @@ def create_blog_items(blog_posts, site_url, no_description=False):
         
         if title_match:
             title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
-            # Remove first <h3> from description
-            description = re.sub(r'<h3[^>]*>.*?</h3>', '', content, count=1, flags=re.IGNORECASE | re.DOTALL)
         else:
             title = post['name'].replace('.txt', '').replace('_', ' ').title()
-            description = content
+            
         
         # If no_description flag is True, use empty description
-        if no_description:
-            description = ''
+        description = ''
+        if not no_description:
+            if title_match:
+                # Remove first <h3> from description
+                description = re.sub(r'<h3[^>]*>.*?</h3>', '', content, count=1, flags=re.IGNORECASE | re.DOTALL)
+            else:
+                description = content
+            # replace relative path to absolute
+            description = re.sub(
+                r'href=(["\'])([^/][^"\']*)',
+                rf'href=\1{site_url}/cgi-bin/cms/\2',
+                description
+            )
+            description = re.sub(
+                r'=(["\'])\.\.\/\.\.\/',
+                rf'=\1{site_url}/',
+                description
+            )
+
         
         item = {
             'title': title,
