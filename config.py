@@ -1,6 +1,6 @@
 # W10Feed config file
-# 
-#
+
+# Lines starting with '#' will be ignored
 # Example:
 
 #PROFILES={
