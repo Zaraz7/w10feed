@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import ftplib
 import os
-import re
 from .utils import *
 from .version import __version__
 
@@ -266,16 +265,17 @@ def create_blog_items(blog_posts, site_url, no_description=False):
             else:
                 description = content
             # replace relative path to absolute
-            description = re.sub(
-                r'href=(["\'])([^/][^"\']*)',
-                rf'href=\1{site_url}/cgi-bin/cms/\2',
-                description
-            )
-            description = re.sub(
-                r'=(["\'])\.\.\/\.\.\/',
-                rf'=\1{site_url}/',
-                description
-            )
+            # description = re.sub(
+            #     r'href=(["\'])([^/][^"\']*)',
+            #     rf'href=\1{site_url}/cgi-bin/cms/\2',
+            #     description
+            # )
+            # description = re.sub(
+            #     r'=(["\'])\.\.\/\.\.\/',
+            #     rf'=\1{site_url}/',
+            #     description
+            # )
+            description = replace_relative_urls(description, f'{site_url}/cgi-bin/cms/')
 
         
         item = {
