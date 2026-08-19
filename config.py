@@ -1,6 +1,7 @@
-# Config file of W10Feed
-#   
-# Example config:
+# W10Feed config file
+# 
+#
+# Example:
 
 #PROFILES={
 #   "myblog":{
