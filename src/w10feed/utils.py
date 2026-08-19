@@ -39,34 +39,15 @@ def format_iso8601_date(timestamp):
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 # HTML Utils
-def replace_relative_urls(html, cms_url_placeholder="{cms_url}"):
+def replace_relative_urls(html, url_placeholder):
     """
-    Заменяет относительные пути в href и src на {cms_url}...
-    Игнорирует:
-    - Абсолютные пути с протоколом (http://, https://, gopher://, и т.д.)
-    - Пути начинающиеся с // (protocol-relative)
-    - Якори (#fragment)
-    - Содержимое внутри <pre> и других тегов с кодом
+    Replace links in href and src
+    Inore:
+    - absolute urls w (http://, https://, gopher://, и т.д.)
+    - protocol-relative
+    - anchors
     """
-    
-    # Регулярное выражение для href и src атрибутов
-    # Захватывает:
-    # - Группа 1: открывающая кавычка (" или ')
-    # - Группа 2: атрибут (href или src)
-    # - Группа 3: закрывающая кавычка (совпадает с открывающей)
-    # - Группа 4: значение пути
-    
-    # Основной regex для href и src
-    # (?:href|src)=(["\'])([^"\']*)\1
-    # Но нужно учитывать, что кавычка может быть разной
-    
-    #pattern = r'(href|src)=(["\'])([^\2]*?)\2'
-    
-    # Более надёжный вариант с именованными группами:
-    #pattern = r'(href|src)=([\"\'])(?:(?=(\\?))\3.)*?\2'
-    
-    # Самый простой и работающий вариант:
-    pattern = r'(href|src)=(["\'])([^"\']*)\2'
+    pattern = r'<[^>]*(href|src)=(["\'])([^"\']*)\2'
     
     def replace_url(match):
         attr_name = match.group(1)
@@ -77,7 +58,7 @@ def replace_relative_urls(html, cms_url_placeholder="{cms_url}"):
         if (not re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', url) and
             not url.startswith('//') and
             not url.startswith('#')):
-            return f'{attr_name}={quote}{cms_url_placeholder}{url}{quote}'
+            return f'{attr_name}={quote}{url_placeholder}{url}{quote}'
         
         return match.group(0)
     
