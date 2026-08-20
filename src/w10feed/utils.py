@@ -47,18 +47,17 @@ def replace_relative_urls(html, url_placeholder):
     - protocol-relative
     - anchors
     """
-    pattern = r'<[^>]*(href|src)=(["\'])([^"\']*)\2'
+    pattern = r'(<[^>]*(href|src)=)(["\'])([^"\']*)\3'
     
     def replace_url(match):
-        attr_name = match.group(1)
-        quote = match.group(2)
-        url = match.group(3)
+        tag_part = match.group(1)  # <a href=
+        quote = match.group(3)      # "
+        url = match.group(4) 
         
-        # Проверка на относительный путь
         if (not re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', url) and
             not url.startswith('//') and
             not url.startswith('#')):
-            return f'{attr_name}={quote}{url_placeholder}{url}{quote}'
+            return f'{tag_part}{quote}{url_placeholder}{url}{quote}'
         
         return match.group(0)
     
