@@ -169,7 +169,7 @@ neocities   (WIP) neocities.org like feed
     p = sub.add_parser('profile', help='Run profile from config.py', 
                        formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument('profile', nargs='?', help='''Profile name from config.py
-Use '*' to run all profiles
+Use 'all' to run all profiles
 If not specified, runs the first profile''')
     p.add_argument('--passwd', "-p", help="FTP password (overrides config)")
     p.add_argument('--local', help="Disable upload output file back to FTP server", 
