@@ -3,7 +3,8 @@ import argparse
 import os
 import sys
 import getpass
-from src.w10feed.w10feed import make_pics, make_blog, FTPHandler, __version__
+from src.w10feed.w10feed import make_pics, make_blog, __version__
+from src.w10feed.handlers.ftphandler import FTPHandler
 
 try:
     from config import PROFILES
