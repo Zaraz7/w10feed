@@ -3,7 +3,7 @@
 import os
 from .utils import *
 from .version import __version__
-
+from xml.dom import minidom
 
 class FeedGenerator:
     def __init__(self, config):
@@ -22,51 +22,74 @@ class FeedGenerator:
     def escape(self, text):
         return escape_xml(text)
 
+
+
 class RSSGenerator(FeedGenerator):
-    # RSS 2.0 generator without xml mobule because i fucked built-in escaping  
     def generate(self):
-        # TODO: Maybe need own xml builder
-        lines = []
-        lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-        lines.append('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">')
-        lines.append('<channel>')
+        doc = minidom.Document()
         
-        # metadata
-        lines.append(f'  <atom:link href="{self.escape(self.config["site_url"])}/{self.escape(self.config["output_file"])}" rel="self" type="application/rss+xml"/>')
-        lines.append(f'  <title>{self.escape(self.config["title"])}</title>')
-        lines.append(f'  <description>{self.escape(self.config["description"])}</description>')
-        lines.append(f'  <link>{self.escape(self.config["site_url"])}</link>')
-        lines.append(f'  <language>{self.escape(self.config["lang"])}</language>')
-        lines.append(f'  <lastBuildDate>{format_rfc822_date(datetime.now().timestamp())}</lastBuildDate>')
-        lines.append(f'  <generator>w10feed/{__version__}</generator>')
+        rss = doc.createElement('rss')
+        rss.setAttribute('version', '2.0')
+        rss.setAttribute('xmlns:atom', 'http://www.w3.org/2005/Atom')
+        doc.appendChild(rss)
+        
+        channel = doc.createElement('channel')
+        rss.appendChild(channel)
+        
+        # Metadata
+        atom_link = doc.createElement('atom:link')
+        atom_link.setAttribute('href', f"{self.config['site_url']}/{self.config['output_file']}")
+        atom_link.setAttribute('rel', 'self')
+        atom_link.setAttribute('type', 'application/rss+xml')
+        channel.appendChild(atom_link)
+        
+        self._add_text_element(doc, channel, 'title', self.config['title'])
+        self._add_text_element(doc, channel, 'description', self.config['description'])
+        self._add_text_element(doc, channel, 'link', self.config['site_url'])
+        self._add_text_element(doc, channel, 'language', self.config['lang'])
+        self._add_text_element(doc, channel, 'lastBuildDate', format_rfc822_date(datetime.now().timestamp()))
+        self._add_text_element(doc, channel, 'generator', f'w10feed/{__version__}')
         
         # Items
         for i, item in enumerate(self.items):
             print(f"Writing item {i+1}/{len(self.items)}: {item['title']:<70s}", end="\r")
             
-            lines.append('  <item>')
-            lines.append(f'    <title>{self.escape(item["title"])}</title>')
-            uri = iri_to_uri(self.escape(item["link"]))
-            lines.append(f'    <link>{uri}</link>')
-            lines.append(f'    <guid>{uri}</guid>')
+            item_elem = doc.createElement('item')
+            channel.appendChild(item_elem)
             
-            # Description with or without html
+            self._add_text_element(doc, item_elem, 'title', item['title'])
+            
+            uri = iri_to_uri(self.escape(item['link']))
+            self._add_text_element(doc, item_elem, 'link', uri)
+            self._add_text_element(doc, item_elem, 'guid', uri)
+            
+            # Description with proper CDATA handling
             if item['description'] != '':
-                lines.append('    <description>')
+                desc_elem = doc.createElement('description')
+                item_elem.appendChild(desc_elem)
+                
                 if self._needs_cdata(item['description']):
-                    lines.append(f'      <![CDATA[{item["description"]}]]>')
+                    cdata = doc.createCDATASection(item['description'])
+                    desc_elem.appendChild(cdata)
                 else:
-                    lines.append(f'      {self.escape(item["description"])}')
-                lines.append('    </description>')
-
-            lines.append(f'    <pubDate>{format_rfc822_date(item["timestamp"])}</pubDate>')
-            lines.append('  </item>')
+                    text_node = doc.createTextNode(item['description'])
+                    desc_elem.appendChild(text_node)
+            
+            self._add_text_element(doc, item_elem, 'pubDate', format_rfc822_date(item['timestamp']))
         
-        lines.append('</channel></rss>')
-        return '\n'.join(lines)
+        xml_str = doc.toxml(encoding='UTF-8').decode('UTF-8')
+
+        return xml_str
+    
+    def _add_text_element(self, doc, parent, tag_name, text):
+        elem = doc.createElement(tag_name)
+        text_node = doc.createTextNode(self.escape(text))
+        elem.appendChild(text_node)
+        parent.appendChild(elem)
     
     def _needs_cdata(self, text):
         return '<' in text and '>' in text
+
 
 # Wow, this is still peace of shi
 def create_feed_items(images):
