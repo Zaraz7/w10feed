@@ -112,6 +112,12 @@ def cmd_profile(args):
         print("Please create a config.py file with PROFILES dictionary")
         return
     
+    if args.profile == 'list':
+        print(f"Name\t\t Type\t URL")
+        for profile_name in PROFILES:
+            print(f"{profile_name:<12}\t {PROFILES[profile_name]['type']}\t {PROFILES[profile_name]['url']}")
+        return
+
     if args.profile == 'all':
         # Run all profiles
         success = True
